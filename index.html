@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>風船割り占い - Aura Oracle</title>
+  <style>
+    :root{ color-scheme: dark; }
+    html,body{ height:100%; margin:0; }
+    body{
+      background:#050810;
+      font-family: system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP",sans-serif;
+      overscroll-behavior:none;
+      -webkit-tap-highlight-color:transparent;
+      touch-action:none;
+      user-select:none;
+    }
+    #wrap{
+      position:fixed; inset:0;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      padding: env(safe-area-inset-top) 10px env(safe-area-inset-bottom) 10px;
+      gap:8px;
+    }
+    .hud{
+      display:flex; justify-content:space-between; align-items:center;
+      gap:8px; flex-wrap:wrap;
+      padding: 8px 6px 0;
+      color:rgba(235,242,255,.92);
+    }
+    .left{ display:flex; gap:10px; flex-wrap:wrap; }
+    .pill{
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      padding: 7px 10px;
+      border-radius:999px;
+      font-size:13px;
+      backdrop-filter: blur(8px);
+    }
+    .btns{ display:flex; gap:8px; flex-wrap:wrap; }
+    .btn{
+      cursor:pointer;
+      background: rgba(120,190,255,.18);
+      border: 1px solid rgba(120,190,255,.35);
+      color:#eaf3ff;
+      padding: 9px 12px;
+      border-radius: 12px;
+      font-weight: 900;
+      letter-spacing:.02em;
+    }
+    .btn:active{ transform: translateY(1px); }
+    canvas{
+      width:100%;
+      height:100%;
+      display:block;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.10);
+      background:
+        radial-gradient(1200px 700px at 50% 120%, rgba(110,170,255,.16), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    }
+    .foot{
+      color: rgba(215,225,255,.75);
+      font-size:12px;
+      padding:0 6px 10px;
+      text-align:center;
+      line-height:1.6;
+    }
+
+    /* 結果オーバーレイ（グラフィカル） */
+    .overlay{
+      position:fixed; inset:0;
+      display:none;
+      z-index:20;
+      padding: env(safe-area-inset-top) 14px env(safe-area-inset-bottom) 14px;
+      background: rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+    }
+    .overlay.show{ display:grid; grid-template-rows:auto 1fr auto; gap:10px; }
+    .topbar{
+      display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+      color: rgba(235,242,255,.95);
+    }
+    .topbar .ttl{ font-weight: 1000; letter-spacing:.02em; }
+    .actions{ display:flex; gap:8px; flex-wrap:wrap; }
+    .btn2{
+      cursor:pointer;
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-weight: 900;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: rgba(235,242,255,.95);
+    }
+    .btn2:active{ transform: translateY(1px); }
+
+    .cardWrap{
+      display:grid;
+      place-items:center;
+    }
+    .resultCard{
+      width: min(560px, 100%);
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(10,14,26,.78);
+      box-shadow: 0 22px 90px rgba(0,0,0,.55);
+      padding: 14px;
+      position: relative;
+      overflow:hidden;
+    }
+    .resultCard:before{
+      content:"";
+      position:absolute; inset:-40%;
+      background: conic-gradient(from 0deg, rgba(255,255,255,.0), rgba(255,255,255,.08), rgba(255,255,255,.0));
+      animation: spin 6s linear infinite;
+      opacity:.55;
+    }
+    @keyframes spin{ to{ transform: rotate(360deg); } }
+    .resultInner{
+      position:relative;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      padding: 14px;
+    }
+    .row2{
+      display:grid;
+      grid-template-columns: 160px 1fr;
+      gap: 12px;
+      align-items:center;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06);
+      font-size: 12px;
+      font-weight: 900;
+      width: fit-content;
+    }
+    .h1{
+      font-size: 18px;
+      font-weight: 1000;
+      margin: 8px 0 0;
+      letter-spacing:.02em;
+    }
+    .desc{
+      opacity:.88;
+      font-size: 13px;
+      line-height:1.75;
+      margin-top: 8px;
+      white-space: pre-line;
+    }
+    .mini{
+      opacity:.7;
+      font-size: 12px;
+      margin-top: 10px;
+      line-height:1.6;
+    }
+    .spark{
+      display:flex; gap:6px; flex-wrap:wrap; margin-top: 10px;
+    }
+    .chip{
+      font-size: 12px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      opacity: .92;
+    }
+    .bottomNote{
+      color: rgba(235,242,255,.72);
+      font-size:12px;
+      line-height:1.6;
+      text-align:center;
+    }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <div class="hud">
+      <div class="left">
+        <div class="pill">SCORE: <span id="score">0</span></div>
+        <div class="pill">COMBO: <span id="combo">0</span></div>
+        <div class="pill">POPS: <span id="pops">0</span>/10</div>
+        <div class="pill">TIME: <span id="time">30.0</span>s</div>
+      </div>
+      <div class="btns">
+        <button class="btn" id="btnStart">START</button>
+        <button class="btn" id="btnRestart">RESTART</button>
+      </div>
+    </div>
+
+    <canvas id="game"></canvas>
+
+    <div class="foot">
+      風船をタップで割る（10個 or 30秒）→ グラフィカル占いカードが出る。<br>
+      iPhoneはホーム画面追加でアプリみたいに使える
+    </div>
+  </div>
+
+  <!-- 結果オーバーレイ -->
+  <div class="overlay" id="overlay">
+    <div class="topbar">
+      <div class="ttl">占い結果カード</div>
+      <div class="actions">
+        <button class="btn2" id="btnShare">共有</button>
+        <button class="btn2" id="btnCopy">コピー</button>
+        <button class="btn2" id="btnAgain">もう一回</button>
+      </div>
+    </div>
+
+    <div class="cardWrap">
+      <div class="resultCard" id="resultCard">
+        <div class="resultInner" id="resultInner">
+          <div class="row2">
+            <canvas id="resultViz" width="160" height="160" style="width:160px;height:160px;border-radius:18px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.15)"></canvas>
+            <div>
+              <div class="badge" id="rBadge">—</div>
+              <div class="h1" id="rTitle">—</div>
+              <div class="desc" id="rDesc">—</div>
+              <div class="spark" id="rChips"></div>
+              <div class="mini" id="rMini">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottomNote">
+      ※ 占いは「直感の選択」を可視化した遊びの診断だよ。結果はあなたの味方として使ってね。
+    </div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d", { alpha:true });
+
+  const $score = document.getElementById("score");
+  const $combo = document.getElementById("combo");
+  const $pops  = document.getElementById("pops");
+  const $time  = document.getElementById("time");
+  const btnStart = document.getElementById("btnStart");
+  const btnRestart = document.getElementById("btnRestart");
+
+  const overlay = document.getElementById("overlay");
+  const btnShare = document.getElementById("btnShare");
+  const btnCopy  = document.getElementById("btnCopy");
+  const btnAgain = document.getElementById("btnAgain");
+
+  const rBadge = document.getElementById("rBadge");
+  const rTitle = document.getElementById("rTitle");
+  const rDesc  = document.getElementById("rDesc");
+  const rMini  = document.getElementById("rMini");
+  const rChips = document.getElementById("rChips");
+
+  const viz = document.getElementById("resultViz");
+  const vctx = viz.getContext("2d");
+
+  function clamp(v,min,max){ return Math.max(min, Math.min(max,v)); }
+  function rand(a,b){ return a + Math.random()*(b-a); }
+
+  // --- 高DPI ---
+  function resize(){
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(rect.width * dpr);
+    canvas.height= Math.floor(rect.height* dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener("resize", resize);
+
+  // ---- ゲーム状態 ----
+  let W=0,H=0;
+  let running=false, finished=false;
+  let score=0, combo=0, timeLeft=30.0;
+  const targetPops=10;
+  const popLog=[]; // {t,colorKey,x,y}
+  let startAt=0;
+
+  // --- パレット ---
+  const palette = [
+    { key:"RED", hex:"#ff4d6d", name:"紅" },
+    { key:"YEL", hex:"#ffb703", name:"黄" },
+    { key:"BLU", hex:"#4cc9f0", name:"青" },
+    { key:"GRN", hex:"#8aff7a", name:"緑" },
+    { key:"PUR", hex:"#b517ff", name:"紫" },
+    { key:"PNK", hex:"#f72585", name:"桃" },
+    { key:"CYN", hex:"#00f5d4", name:"碧" },
+    { key:"LAV", hex:"#ffd6ff", name:"霞" },
+  ];
+
+  const meta = {
+    RED:{ type:"火", title:"紅蓮の突破者", core:"勢い・決断・前進", hint:"迷いを燃料に変えられる日。小さく踏み出すほど道が開く。", word:["一歩目が勝ち","即断即動"] },
+    BLU:{ type:"水", title:"蒼の観測者", core:"整理・観察・最適化", hint:"答えは静けさの中。今日は整えるほど勝率が上がる。", word:["整える","俯瞰"] },
+    GRN:{ type:"木", title:"翠の育成者", core:"回復・調和・継続", hint:"派手さより積み上げ。育てたものが未来で効く日。", word:["積み上げ","安心"] },
+    YEL:{ type:"風", title:"黄金の発見者", core:"好奇心・遊び・ひらめき", hint:"面白い方が正解になりやすい。試した分だけ当たりに近づく。", word:["軽やか","実験"] },
+    PUR:{ type:"星", title:"紫宙の直感師", core:"直感・美意識・流れ", hint:"言語化前のひらめきが宝。浮かんだ案は一旦メモが正解。", word:["直感","美学"] },
+    PNK:{ type:"花", title:"桃花の共鳴者", core:"共感・魅力・関係", hint:"言葉が運を運ぶ日。柔らかい一言が状況を変える。", word:["やさしさ","つながり"] },
+    CYN:{ type:"空", title:"碧空の刷新者", core:"自由・更新・解放", hint:"枠を外すほど楽になる。古い正解より新しい試し方へ。", word:["刷新","解放"] },
+    LAV:{ type:"月", title:"霞月の語り手", core:"余韻・感受性・物語", hint:"急がない選択も正解。余白にヒントが落ちている日。", word:["余白","物語"] },
+  };
+
+  // ---- バブル/エフェクト（リッチ化） ----
+  const bubbles=[];
+  const particles=[];
+  const auroras=[]; // 背景ゆらぎ
+
+  function syncHUD(){
+    $score.textContent = String(score);
+    $combo.textContent = String(combo);
+    $pops.textContent  = `${popLog.length}/${targetPops}`;
+    $time.textContent  = timeLeft.toFixed(1);
+  }
+
+  function reset(){
+    running=false; finished=false;
+    score=0; combo=0; timeLeft=30.0;
+    bubbles.length=0; particles.length=0; auroras.length=0;
+    popLog.length=0; startAt=0;
+    hideResult();
+    syncHUD();
+  }
+
+  function spawnBubble(){
+    const minDim = Math.min(W,H);
+    const r = rand(minDim*0.055, minDim*0.10);
+    const x = rand(r+12, W-r-12);
+    const y = rand(r+12, H-r-12);
+    const life = rand(1.0, 1.7);
+    const drift = { x: rand(-26, 26), y: rand(-22, 22) };
+    const grow = rand(0.85, 1.35);
+    const p = palette[Math.floor(Math.random()*palette.length)];
+
+    bubbles.push({
+      x,y,r,t:0,life,grow,drift,
+      color:p.hex, key:p.key,
+      shimmer: rand(0, Math.PI*2),
+      ring: rand(0.12, 0.22)
+    });
+  }
+
+  function popFx(x,y,color,baseR){
+    // パーティクル多め
+    const n = 28 + Math.floor(Math.random()*18);
+    for(let i=0;i<n;i++){
+      const a = Math.random()*Math.PI*2;
+      const sp = rand(140, 460);
+      particles.push({
+        x,y,
+        vx: Math.cos(a)*sp,
+        vy: Math.sin(a)*sp,
+        r: rand(1.6, 4.6),
+        t:0, life: rand(0.35, 0.85),
+        color,
+        tw: rand(0.6, 1.4)
+      });
+    }
+    // オーラの輪
+    particles.push({ x,y, vx:0, vy:0, r: baseR*0.55, t:0, life:0.55, color, ring:true });
+
+    // 背景オーロラ追加
+    auroras.push({
+      x, y,
+      r: baseR*2.6,
+      t:0,
+      life: 0.9,
+      color
+    });
+  }
+
+  // ---- 入力 ----
+  function toggle(){
+    if (finished) return;
+    running = !running;
+    if (running && !startAt) startAt = performance.now();
+  }
+
+  btnStart.addEventListener("click", () => { if(!finished){ running=true; if(!startAt) startAt=performance.now(); } });
+  btnRestart.addEventListener("click", () => reset());
+  window.addEventListener("keydown",(e)=>{ if(e.key===" "){ e.preventDefault(); toggle(); } }, {passive:false});
+
+  function pointerPos(e){
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX-rect.left, y: e.clientY-rect.top };
+  }
+
+  function tryHit(x,y){
+    for(let i=bubbles.length-1;i>=0;i--){
+      const b=bubbles[i];
+      const dx=x-b.x, dy=y-b.y;
+      if(dx*dx+dy*dy<=b.r*b.r){
+        bubbles.splice(i,1);
+        const now = performance.now();
+        popLog.push({
+          t: startAt ? (now-startAt)/1000 : 0,
+          colorKey: b.key,
+          x: b.x/Math.max(1,W),
+          y: b.y/Math.max(1,H),
+        });
+
+        combo += 1;
+        const bonus = Math.floor(10*(1+Math.min(10,combo)*0.22));
+        score += bonus;
+        timeLeft = clamp(timeLeft + 0.10, 0, 60);
+
+        popFx(b.x,b.y,b.color,b.r);
+        syncHUD();
+
+        if (popLog.length>=targetPops) finish();
+        return true;
+      }
+    }
+    combo=0; syncHUD();
+    return false;
+  }
+
+  canvas.addEventListener("pointerdown",(e)=>{
+    canvas.setPointerCapture?.(e.pointerId);
+    if(!running && !finished){ running=true; if(!startAt) startAt=performance.now(); }
+    const p = pointerPos(e);
+    tryHit(p.x,p.y);
+  });
+
+  // ---- 占い解析（グラフィカル向けスコア化） ----
+  function analyze(log){
+    const cnt={};
+    for(const p of log) cnt[p.colorKey]=(cnt[p.colorKey]||0)+1;
+
+    let mainKey="BLU", mainN=-1;
+    for(const k in cnt){ if(cnt[k]>mainN){ mainN=cnt[k]; mainKey=k; } }
+
+    const times = log.map(z=>z.t).sort((a,b)=>a-b);
+    let avgGap=999;
+    if(times.length>=2){
+      let s=0;
+      for(let i=1;i<times.length;i++) s += (times[i]-times[i-1]);
+      avgGap = s/(times.length-1);
+    }
+
+    // 端寄り（探索志向）
+    const edge = log.reduce((a,p)=>{
+      const dx=Math.abs(p.x-0.5), dy=Math.abs(p.y-0.5);
+      return a + (dx+dy);
+    },0)/Math.max(1,log.length);
+
+    // バラつき（感情の波）
+    let varGap=0;
+    if(times.length>=3){
+      const gaps=[];
+      for(let i=1;i<times.length;i++) gaps.push(times[i]-times[i-1]);
+      const m=gaps.reduce((a,b)=>a+b,0)/gaps.length;
+      varGap = gaps.reduce((a,g)=>a+(g-m)*(g-m),0)/gaps.length;
+    }
+
+    // レーダー用4軸（0..1）
+    // 直感(速さ) / 安定(ばらつき逆) / 探索(端寄り) / 集中(コンボ強めに反映)
+    const intuition = clamp(1 - avgGap/1.2, 0, 1);
+    const stable    = clamp(1 - Math.sqrt(varGap)/0.9, 0, 1);
+    const explore   = clamp((edge-0.40)/0.35, 0, 1);
+    const focus     = clamp((Math.min(10, combo))/10, 0, 1);
+
+    return { cnt, mainKey, avgGap, edge, intuition, stable, explore, focus };
+  }
+
+  function topColors(cnt){
+    return Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,3)
+      .map(([k,n]) => `${(palette.find(p=>p.key===k)?.name||k)}×${n}`);
+  }
+
+  function moodBadge(avgGap){
+    if(avgGap<=0.55) return "即断モード";
+    if(avgGap<=0.95) return "安定モード";
+    return "熟考モード";
+  }
+
+  function quoteFor(k){
+    const m = meta[k] || meta.BLU;
+    const options = [
+      `迷ったら「小さく試す」。`,
+      `今日は「整える」ほど伸びる。`,
+      `軽い方へ動くと運が乗る。`,
+      `直感メモが未来を助ける。`,
+      `言葉が運を運ぶ。`,
+      `枠を外すほど楽になる。`,
+      `余白にヒントが落ちてる。`,
+    ];
+    // メタのヒントを混ぜる
+    return (Math.random()<0.55) ? m.hint : options[Math.floor(Math.random()*options.length)];
+  }
+
+  // ---- 結果描画（レーダー＋オーラ） ----
+  function drawResultViz(mainKey, a){
+    const m = meta[mainKey] || meta.BLU;
+    const base = (palette.find(p=>p.key===mainKey)?.hex) || "#4cc9f0";
+
+    const w=viz.width, h=viz.height;
+    vctx.clearRect(0,0,w,h);
+
+    // 背景グロー
+    const cx=w/2, cy=h/2;
+    const g = vctx.createRadialGradient(cx,cy,10,cx,cy,78);
+    g.addColorStop(0, hexToRgba(base,0.55));
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    vctx.fillStyle=g;
+    vctx.beginPath(); vctx.arc(cx,cy,78,0,Math.PI*2); vctx.fill();
+
+    // ガイド円
+    vctx.lineWidth=1;
+    vctx.strokeStyle="rgba(255,255,255,.14)";
+    for(const r of [22,40,58,76]){
+      vctx.beginPath(); vctx.arc(cx,cy,r,0,Math.PI*2); vctx.stroke();
+    }
+
+    // レーダー（4軸）
+    const axes = [
+      {name:"直感", v:a.intuition, ang:-Math.PI/2},
+      {name:"安定", v:a.stable,    ang:-Math.PI/2 + Math.PI/2},
+      {name:"探索", v:a.explore,   ang:-Math.PI/2 + Math.PI},
+      {name:"集中", v:a.focus,     ang:-Math.PI/2 + Math.PI*1.5},
+    ];
+
+    // 軸線
+    vctx.strokeStyle="rgba(255,255,255,.18)";
+    for(const ax of axes){
+      const x = cx + Math.cos(ax.ang)*78;
+      const y = cy + Math.sin(ax.ang)*78;
+      vctx.beginPath(); vctx.moveTo(cx,cy); vctx.lineTo(x,y); vctx.stroke();
+    }
+
+    // 面
+    vctx.beginPath();
+    axes.forEach((ax, i)=>{
+      const r = 18 + ax.v*58;
+      const x = cx + Math.cos(ax.ang)*r;
+      const y = cy + Math.sin(ax.ang)*r;
+      if(i===0) vctx.moveTo(x,y); else vctx.lineTo(x,y);
+    });
+    vctx.closePath();
+    vctx.fillStyle = hexToRgba(base, 0.28);
+    vctx.fill();
+    vctx.lineWidth=2;
+    vctx.strokeStyle = hexToRgba(base, 0.65);
+    vctx.stroke();
+
+    // 中央マーク
+    vctx.fillStyle="rgba(255,255,255,.92)";
+    vctx.beginPath(); vctx.arc(cx,cy,3.2,0,Math.PI*2); vctx.fill();
+
+    // タイプ文字
+    vctx.fillStyle="rgba(255,255,255,.90)";
+    vctx.font="900 12px system-ui,-apple-system,'Noto Sans JP',sans-serif";
+    vctx.textAlign="center";
+    vctx.fillText(`${m.type}属性`, cx, h-14);
+  }
+
+  function hexToRgba(hex,a){
+    const h=hex.replace("#","");
+    const r=parseInt(h.slice(0,2),16);
+    const g=parseInt(h.slice(2,4),16);
+    const b=parseInt(h.slice(4,6),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  // ---- 結果生成/表示 ----
+  let lastResultText = "";
+
+  function finish(){
+    running=false;
+    finished=true;
+
+    const a = analyze(popLog);
+    const m = meta[a.mainKey] || meta.BLU;
+    const badge = moodBadge(a.avgGap);
+    const top = topColors(a.cnt);
+
+    const q = quoteFor(a.mainKey);
+
+    rBadge.textContent = `${badge} / ${m.type}属性`;
+    rTitle.textContent = m.title;
+    rDesc.textContent =
+      `核：${m.core}\n` +
+      `傾向：${m.hint}\n` +
+      `今日のキー：${q}`;
+
+    // チップ（視覚）
+    rChips.innerHTML = "";
+    const chips = [
+      `色：${top.join(" / ")}`,
+      `直感：${Math.round(a.intuition*100)}%`,
+      `安定：${Math.round(a.stable*100)}%`,
+      `探索：${Math.round(a.explore*100)}%`,
+      `集中：${Math.round(a.focus*100)}%`,
+    ];
+    chips.forEach(t=>{
+      const d=document.createElement("div");
+      d.className="chip";
+      d.textContent=t;
+      rChips.appendChild(d);
+    });
+
+    rMini.textContent = `SCORE: ${score} / 割った数: ${popLog.length} / 平均テンポ: ${a.avgGap.toFixed(2)}s`;
+
+    drawResultViz(a.mainKey, a);
+
+    lastResultText =
+`風船割り占い：${m.title}（${badge} / ${m.type}属性）
+核：${m.core}
+色：${top.join(" / ")}
+直感${Math.round(a.intuition*100)}% 安定${Math.round(a.stable*100)}% 探索${Math.round(a.explore*100)}% 集中${Math.round(a.focus*100)}%
+今日のキー：${q}`;
+
+    showResult();
+  }
+
+  function showResult(){ overlay.classList.add("show"); }
+  function hideResult(){ overlay.classList.remove("show"); }
+
+  btnAgain.addEventListener("click", ()=> reset());
+
+  btnCopy.addEventListener("click", async ()=>{
+    const text = lastResultText + "\n" + location.href;
+    try{
+      await navigator.clipboard.writeText(text);
+      btnCopy.textContent = "コピーした！";
+      setTimeout(()=>btnCopy.textContent="コピー", 1200);
+    }catch{
+      prompt("コピーして使ってね👇", text);
+    }
+  });
+
+  btnShare.addEventListener("click", async ()=>{
+    const text = lastResultText;
+    // 画像共有はiOSで制限があるので、まずテキスト共有を確実に
+    try{
+      if (navigator.share){
+        await navigator.share({ title:"風船割り占い", text, url: location.href });
+      } else {
+        await navigator.clipboard.writeText(text + "\n" + location.href);
+        alert("共有機能がないので、結果をコピーしたよ。");
+      }
+    }catch{
+      // ユーザーキャンセルなど
+    }
+  });
+
+  // ---- ループ ----
+  let spawnTimer=0;
+  let last=performance.now();
+
+  function update(dt){
+    if(!running || finished) return;
+
+    timeLeft -= dt;
+    if(timeLeft<=0){
+      timeLeft=0;
+      $time.textContent=timeLeft.toFixed(1);
+      finish();
+      return;
+    }
+    $time.textContent=timeLeft.toFixed(1);
+
+    const difficulty = 1 + (30 - timeLeft)/30;
+    const interval = clamp(0.30 / difficulty, 0.12, 0.30);
+
+    spawnTimer += dt;
+    while(spawnTimer >= interval){
+      spawnTimer -= interval;
+      spawnBubble();
+      if(bubbles.length>24) bubbles.shift();
+    }
+
+    // バブル更新
+    for(let i=bubbles.length-1;i>=0;i--){
+      const b=bubbles[i];
+      b.t += dt;
+      b.shimmer += dt*2.2;
+
+      b.x += b.drift.x * dt;
+      b.y += b.drift.y * dt;
+
+      if (b.x - b.r < 10 || b.x + b.r > W - 10) b.drift.x *= -1;
+      if (b.y - b.r < 10 || b.y + b.r > H - 10) b.drift.y *= -1;
+
+      b.r *= (1 + dt * 0.16 * b.grow);
+
+      if(b.t >= b.life){
+        bubbles.splice(i,1);
+        combo=0;
+        syncHUD();
+      }
+    }
+
+    // 背景オーロラ
+    for(let i=auroras.length-1;i>=0;i--){
+      const a=auroras[i];
+      a.t += dt;
+      if(a.t>=a.life){ auroras.splice(i,1); continue; }
+      a.r *= (1 + dt*0.55);
+    }
+
+    // パーティクル
+    for(let i=particles.length-1;i>=0;i--){
+      const p=particles[i];
+      p.t += dt;
+      if(p.t>=p.life){ particles.splice(i,1); continue; }
+      if(!p.ring){
+        p.vy += 560*dt;
+        p.x += p.vx*dt;
+        p.y += p.vy*dt;
+        p.vx *= (1 - dt*2.0);
+        p.vy *= (1 - dt*1.4);
+      } else {
+        p.r *= (1 + dt*2.0);
+      }
+    }
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // 背景グラデ + オーロラ
+    // 星
+    ctx.globalAlpha=0.22;
+    for(let i=0;i<90;i++){
+      const x=(i*97)%W, y=(i*173)%H;
+      ctx.fillStyle="white";
+      ctx.fillRect(x,y,1,1);
+    }
+    ctx.globalAlpha=1;
+
+    // オーロラ（割った色が背景に残る）
+    for(const a of auroras){
+      const t = a.t/a.life;
+      const alpha = 0.18*(1-t);
+      const g = ctx.createRadialGradient(a.x,a.y,10,a.x,a.y,a.r);
+      g.addColorStop(0, hexToRgba(a.color, alpha));
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(a.x,a.y,a.r,0,Math.PI*2); ctx.fill();
+    }
+
+    // バブル
+    for(const b of bubbles){
+      const life01 = clamp(1 - (b.t / b.life), 0, 1);
+
+      // 影
+      ctx.beginPath();
+      ctx.arc(b.x,b.y,b.r*1.10,0,Math.PI*2);
+      ctx.fillStyle="rgba(0,0,0,.22)";
+      ctx.fill();
+
+      // 本体（輝き）
+      const g = ctx.createRadialGradient(
+        b.x - b.r*(0.45+0.08*Math.sin(b.shimmer)),
+        b.y - b.r*(0.45+0.08*Math.cos(b.shimmer)),
+        b.r*0.22,
+        b.x, b.y, b.r
+      );
+      g.addColorStop(0, "rgba(255,255,255,.78)");
+      g.addColorStop(0.30, b.color + "CC");
+      g.addColorStop(1, b.color + "44");
+
+      ctx.beginPath();
+      ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+      ctx.fillStyle=g;
+      ctx.fill();
+
+      // リング
+      ctx.lineWidth = Math.max(2, b.r*b.ring);
+      ctx.strokeStyle = "rgba(255,255,255,.60)";
+      ctx.globalAlpha = 0.35 + 0.45*life01;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // 寿命弧
+      ctx.beginPath();
+      ctx.arc(b.x,b.y,b.r*0.88,-Math.PI/2,-Math.PI/2 + Math.PI*2*life01);
+      ctx.lineWidth=3;
+      ctx.strokeStyle="rgba(255,255,255,.32)";
+      ctx.stroke();
+    }
+
+    // パーティクル
+    for(const p of particles){
+      const a = 1 - (p.t/p.life);
+      if(p.ring){
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.lineWidth=4;
+        ctx.strokeStyle=hexToRgba(p.color, 0.60*a);
+        ctx.stroke();
+        continue;
+      }
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=hexToRgba(p.color, 0.95*a);
+      ctx.fill();
+    }
+
+    // テキスト
+    if(!running && !finished && popLog.length===0){
+      centerText("風船を割って占い開始", H*0.52, 18, "rgba(235,242,255,.92)");
+      centerText("10個割るか 30秒で 結果カードが出る", H*0.60, 13, "rgba(235,242,255,.72)");
+    }
+  }
+
+  function centerText(text,y,size,color){
+    ctx.fillStyle=color;
+    ctx.font=`900 ${size}px system-ui,-apple-system,"Noto Sans JP",sans-serif`;
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.fillText(text, W/2, y);
+  }
+
+  function loop(now){
+    const dt = Math.min(0.033, (now-last)/1000);
+    last=now;
+    const rect = canvas.getBoundingClientRect();
+    W=rect.width; H=rect.height;
+
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // 初期化
+  requestAnimationFrame(()=>{
+    resize();
+    reset();
+    requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>
